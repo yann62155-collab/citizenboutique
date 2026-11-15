@@ -1,0 +1,35 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "citizenboutique"
+version = "1.0.0"
+displayName = "Citizen Boutique"
+logoFile = "logo.png"
+authors = "Citizen"
+description = '''
+Boutique medievale du serveur Citizen (touche F6) : articles, images, moyens de paiement, tout reglable en jeu par les admins sans redemarrage.
+'''
+
+[[dependencies.citizenboutique]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.215]"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.citizenboutique]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1]"
+ordering = "NONE"
+side = "BOTH"
+
+# Facultatif : paiement par la banque et recettes vers la tresorerie royale
+[[dependencies.citizenboutique]]
+modId = "citizeneconomy"
+type = "optional"
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"
