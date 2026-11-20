@@ -101,7 +101,15 @@ public final class ShopService {
         root.addProperty("wallet", coinTotal(player, d.settings));
         root.addProperty("xp", player.experienceLevel);
         JsonElement shop = ShopStore.GSON.toJsonTree(d);
+        JsonObject settingsJson = shop.getAsJsonObject().getAsJsonObject("settings");
+        // Le secret PayPal ne quitte jamais le serveur, meme vers un admin.
+        boolean secretSet = d.settings.paypalSecret != null && !d.settings.paypalSecret.isBlank();
+        settingsJson.remove("paypalSecret");
+        root.addProperty("paypalSecretSet", secretSet);
+        root.addProperty("paypalReady", d.settings.payPaypal && PayPalService.configured(d.settings));
         if (!admin) {
+            settingsJson.remove("paypalClientId");
+            settingsJson.remove("returnUrl");
             // Les joueurs ne voient ni les commandes, ni la liste des admins, ni les articles desactives.
             JsonObject so = shop.getAsJsonObject();
             so.getAsJsonObject("settings").remove("admins");
@@ -199,8 +207,9 @@ public final class ShopService {
                 player.giveExperienceLevels(-o.xpLevels);
                 deliver(player, o, reward, "expérience", o.xpLevels + " niveaux", true);
             }
+            case "paypal" -> PayPalService.start(player, o);
             case "free" -> {
-                boolean free = o.price <= 0 && o.xpLevels <= 0 && (o.barterItem.isBlank() || o.barterCount <= 0);
+                boolean free = o.price <= 0 && o.xpLevels <= 0 && o.realPriceCents <= 0 && (o.barterItem.isBlank() || o.barterCount <= 0);
                 if (!free) { error(player, "Cet article n'est pas gratuit."); return; }
                 deliver(player, o, reward, "gratuit", "0", true);
             }
@@ -213,7 +222,7 @@ public final class ShopService {
         return r.length() > 190 ? r.substring(0, 190) : r;
     }
 
-    private static void deliver(ServerPlayer player, ShopData.Offer o, ItemStack reward, String method, String paid, boolean consumeStock) {
+    static void deliver(ServerPlayer player, ShopData.Offer o, ItemStack reward, String method, String paid, boolean consumeStock) {
         if (!reward.isEmpty()) ItemHandlerHelper.giveItemToPlayer(player, reward.copy());
         MinecraftServer server = player.getServer();
         if (server != null) {
@@ -239,6 +248,7 @@ public final class ShopService {
 
     /** Livraison des achats bancaires payes pendant une deconnexion. */
     public static void onLogin(ServerPlayer player) {
+        PayPalService.onLogin(player);
         List<String> todo = PENDING_DELIVERY.remove(player.getUUID());
         if (todo == null) return;
         for (String id : todo) find(id).ifPresent(o -> deliver(player, o, ItemJson.decode(o.item, player.registryAccess()), "banque (livraison différée)", o.price + " PO", false));
@@ -343,6 +353,7 @@ public final class ShopService {
                     o.price = Math.max(0, Math.min(o.price, 1_000_000_000L));
                     o.barterCount = Math.max(0, Math.min(o.barterCount, 10_000));
                     o.xpLevels = Math.max(0, Math.min(o.xpLevels, 10_000));
+                    o.realPriceCents = Math.max(0, Math.min(o.realPriceCents, 100_000));
                     o.stock = Math.max(-1, o.stock);
                     o.limitPerPlayer = Math.max(0, o.limitPerPlayer);
                     if (o.commands == null) o.commands = new ArrayList<>();
@@ -386,6 +397,14 @@ public final class ShopService {
                     ns.opLevel = Math.max(0, Math.min(4, ns.opLevel));
                     if (ns.coins == null || ns.coins.isEmpty()) ns.coins = ShopData.Settings.defaultCoins();
                     if (ns.admins == null) ns.admins = new ArrayList<>();
+                    // Secret PayPal : vide = garder l'actuel, "-" = l'effacer.
+                    String sec = ns.paypalSecret == null ? "" : ns.paypalSecret.trim();
+                    ns.paypalSecret = sec.isEmpty() ? d.settings.paypalSecret : "-".equals(sec) ? "" : sec;
+                    ns.paypalClientId = clip(ns.paypalClientId, 200, "");
+                    ns.currency = clip(ns.currency, 3, "EUR").toUpperCase(java.util.Locale.ROOT);
+                    if (!ns.currency.matches("[A-Z]{3}")) ns.currency = "EUR";
+                    ns.returnUrl = clip(ns.returnUrl, 300, "https://www.paypal.com/");
+                    ns.supportTab = clip(ns.supportTab, 32, "Soutenir le Royaume");
                     d.settings = ns;
                     if (in.has("categories")) {
                         List<String> cats = new ArrayList<>();
@@ -397,6 +416,7 @@ public final class ShopService {
                     }
                     ShopStore.save();
                     PacketDistributor.sendToPlayer(player, new Payloads.Message("ok", "Réglages enregistrés."));
+                    if (ns.payPaypal && PayPalService.configured(ns)) PayPalService.test(player);
                 }
                 default -> { error(player, "Action inconnue."); return; }
             }

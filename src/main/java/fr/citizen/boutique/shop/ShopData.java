@@ -35,6 +35,21 @@ public final class ShopData {
         /** Niveau d'OP qui donne l'acces admin (2 = OP standard). */
         public int opLevel = 2;
 
+        // ---- Soutien en argent reel (PayPal)
+        public boolean payPaypal = false;
+        /** true = mode test PayPal (sandbox), false = vrais paiements. */
+        public boolean paypalSandbox = true;
+        public String paypalClientId = "";
+        /** Jamais envoye aux clients (meme admins). */
+        public String paypalSecret = "";
+        public String currency = "EUR";
+        /** Page ou PayPal renvoie le joueur apres paiement (la livraison ne depend pas de cette page). */
+        public String returnUrl = "https://www.paypal.com/";
+        /** Nom de l'onglet qui regroupe les articles payables en argent reel. */
+        public String supportTab = "Soutenir le Royaume";
+        /** Annonce dans le chat quand un joueur soutient le serveur. */
+        public boolean announceSupport = true;
+
         static Map<String, Long> defaultCoins() {
             Map<String, Long> m = new LinkedHashMap<>();
             m.put("citizeneconomy:coin_platinum", 1000L);
@@ -66,6 +81,8 @@ public final class ShopData {
         public int barterCount = 0;
         /** Niveaux d'experience demandes (0 = pas de paiement en XP). */
         public int xpLevels = 0;
+        /** Prix en argent reel, en centimes (499 = 4,99). 0 = pas de paiement PayPal. */
+        public int realPriceCents = 0;
         /** -1 = stock illimite. */
         public int stock = -1;
         /** 0 = achats illimites par joueur. */

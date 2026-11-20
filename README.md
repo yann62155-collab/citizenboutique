@@ -1,6 +1,6 @@
 # Citizen Boutique (`citizenboutique`)
 
-Boutique médiévale du serveur **Citizen**, ouverte avec **F6** sur PC.
+Boutique médiévale gothique du serveur **Citizen**, ouverte avec **F6** sur PC.
 Minecraft 1.21.1 · NeoForge **21.1.215** · Java 21. Mod à installer **sur le serveur et chez les joueurs** (Citizen Updater s'en charge).
 
 ## Pour les joueurs
@@ -42,6 +42,23 @@ Sur la fiche d'un article : **Modifier**, **Supprimer** (2 clics), **▲ ▼** p
 | Gratuit | Automatique si l'article n'a aucun prix. |
 
 Chaque article peut accepter plusieurs moyens : le joueur choisit.
+
+## Soutenir le serveur avec PayPal (argent réel)
+1. Sur https://developer.paypal.com → **Apps & Credentials** : crée une application et copie son **Client ID** et son **Secret**
+   (onglet **Sandbox** pour tester avec de faux comptes, onglet **Live** pour les vrais paiements).
+2. En jeu : **Réglages → onglet PayPal** : coche « Activer PayPal », colle le Client ID et le Secret, choisis « Mode test » ou non, enregistre.
+   Le serveur teste la connexion et te répond tout de suite.
+3. Dans l'éditeur d'un article, remplis le champ **Soutien €** (ex. `4,99`). L'article apparaît dans l'onglet **« Soutenir le Royaume »**.
+
+Côté joueur : bouton « Soutenir — 4,99 € via PayPal » → la page sécurisée PayPal s'ouvre dans son navigateur → dès que le paiement est encaissé,
+l'article est livré automatiquement en jeu (ou à sa prochaine connexion) et un message de remerciement peut être annoncé dans le chat.
+
+Sécurité : le **Secret** reste sur le serveur (`boutique.json`) et n'est jamais envoyé aux joueurs, ni même aux admins. Le prix est fixé par le serveur,
+le montant encaissé est vérifié avant livraison, une commande n'est jamais livrée deux fois. Tout est noté dans `paypal.json` et `achats.log`.
+
+Commandes : `/boutique paypal` (10 derniers soutiens et leur état), `/boutique paypal verifier` (forcer la vérification).
+
+⚠️ Règles de Mojang (Minecraft Usage Guidelines) : vends des avantages **cosmétiques** ou des dons de soutien, pas d'objets qui donnent un avantage de jeu (pay-to-win).
 
 ## Commandes
 - `/boutique` : ouvrir la boutique.

@@ -30,7 +30,7 @@ public class EditScreen extends BaseScreen {
     private boolean clearItem;
     private String uploadStatus = "";
 
-    private EditBox name, category, price, stock, limit, xp, barterItem, barterCount, image, commands;
+    private EditBox name, category, price, real, stock, limit, xp, barterItem, barterCount, image, commands;
     private MultiLineEditBox description;
     private Ui.Toggle coins, bank, enabled;
 
@@ -68,8 +68,9 @@ public class EditScreen extends BaseScreen {
         category = box(lx, y + 10, lw - 22, "Catégorie", draft.category, 32);
         addRenderableWidget(new Ui.MButton(lx + lw - 20, y + 9, 20, 16, ">", Ui.MButton.Style.WOOD, this::nextCategory));
         y += 28;
-        price = box(lx, y + 10, 70, "0", Long.toString(draft.price), 12);
-        xp = box(lx + 80, y + 10, 70, "0", Integer.toString(draft.xpLevels), 6); y += 28;
+        price = box(lx, y + 10, 48, "0", Long.toString(draft.price), 12);
+        real = box(lx + 51, y + 10, 48, "0,00", draft.realPriceCents > 0 ? centsText(draft.realPriceCents) : "", 8);
+        xp = box(lx + 102, y + 10, 48, "0", Integer.toString(draft.xpLevels), 6); y += 28;
         stock = box(lx, y + 10, 70, "-1", Integer.toString(draft.stock), 9);
         limit = box(lx + 80, y + 10, 70, "0", Integer.toString(draft.limitPerPlayer), 9); y += 28;
         barterItem = box(lx, y + 10, 104, "minecraft:diamond", draft.barterItem, 100);
@@ -130,11 +131,22 @@ public class EditScreen extends BaseScreen {
         try { return Long.parseLong(b.getValue().trim().replace(" ", "")); } catch (NumberFormatException e) { return def; }
     }
 
+    private static String centsText(int c) { return String.format(java.util.Locale.ROOT, "%d,%02d", c / 100, c % 100); }
+
+    /** "4,99" / "4.99" / "5" -> 499 centimes ; vide ou invalide -> 0. */
+    private static int cents(String v) {
+        v = v.trim().replace(" ", "").replace("€", "").replace(',', '.');
+        if (v.isEmpty()) return 0;
+        try { return (int) Math.max(0, Math.min(100_000, Math.round(Double.parseDouble(v) * 100))); }
+        catch (NumberFormatException e) { return 0; }
+    }
+
     private void readFields() {
         draft.name = name.getValue().trim();
         draft.category = category.getValue().trim();
         draft.price = Math.max(0, num(price, 0));
         draft.xpLevels = (int) Math.max(0, num(xp, 0));
+        draft.realPriceCents = cents(real.getValue());
         draft.stock = (int) Math.max(-1, num(stock, -1));
         draft.limitPerPlayer = (int) Math.max(0, num(limit, 0));
         draft.barterItem = barterItem.getValue().trim();
@@ -219,11 +231,12 @@ public class EditScreen extends BaseScreen {
     @Override
     protected void renderOver(GuiGraphics g, int mx, int my, float pt) {
         int lx = px + 14, y = py + 40;
-        int c = 0xFFCDB580;
+        int c = Ui.TEXT_DIM;
         g.drawString(font, "Nom", lx, y, c, false); y += 28;
         g.drawString(font, "Catégorie", lx, y, c, false); y += 28;
-        g.drawString(font, "Prix (PO)", lx, y, c, false);
-        g.drawString(font, "Niveaux XP", lx + 80, y, c, false); y += 28;
+        g.drawString(font, "Prix PO", lx, y, c, false);
+        g.drawString(font, "Soutien " + Ui.money(0, shop().settings.currency).replaceAll("[0-9, ]", ""), lx + 51, y, 0xFFE0707A, false);
+        g.drawString(font, "XP niv.", lx + 102, y, c, false); y += 28;
         g.drawString(font, "Stock (-1 = ∞)", lx, y, c, false);
         g.drawString(font, "Limite/joueur", lx + 80, y, c, false); y += 28;
         g.drawString(font, "Troc : objet   × qté", lx, y, c, false);

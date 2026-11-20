@@ -51,6 +51,12 @@ public final class ClientSetup {
         });
 
         Network.clientMessage = p -> Minecraft.getInstance().execute(() -> {
+            if ("open_url".equals(p.kind())) {
+                Minecraft mc = Minecraft.getInstance();
+                if (!LinkScreen.isPayPal(p.text())) { CitizenBoutique.LOGGER.warn("Lien de paiement refusé : {}", p.text()); return; }
+                mc.setScreen(new LinkScreen(mc.screen, p.text()));
+                return;
+            }
             if ("upload".equals(p.kind())) {
                 if (uploadPng != null) ImageCache.put(p.text(), uploadPng);
                 uploadPng = null;

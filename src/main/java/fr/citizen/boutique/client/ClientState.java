@@ -15,6 +15,8 @@ public final class ClientState {
     public static boolean admin;
     public static boolean bankAvailable;
     public static boolean bankInstalled;
+    public static boolean paypalReady;
+    public static boolean paypalSecretSet;
     public static long bank = -1;
     public static long wallet;
     public static int xp;
@@ -32,6 +34,8 @@ public final class ClientState {
         bankAvailable = root.get("bankAvailable").getAsBoolean();
         bankInstalled = root.has("bankInstalled") && root.get("bankInstalled").getAsBoolean();
         bank = root.get("bank").getAsLong();
+        paypalReady = root.has("paypalReady") && root.get("paypalReady").getAsBoolean();
+        paypalSecretSet = root.has("paypalSecretSet") && root.get("paypalSecretSet").getAsBoolean();
         wallet = root.get("wallet").getAsLong();
         xp = root.get("xp").getAsInt();
         ShopData d = ShopStore.GSON.fromJson(root.get("shop"), ShopData.class);

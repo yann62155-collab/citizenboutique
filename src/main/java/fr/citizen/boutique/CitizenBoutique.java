@@ -3,6 +3,7 @@ package fr.citizen.boutique;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.logging.LogUtils;
 import fr.citizen.boutique.net.Network;
+import fr.citizen.boutique.shop.PayPalService;
 import fr.citizen.boutique.shop.ShopService;
 import fr.citizen.boutique.shop.ShopStore;
 import net.minecraft.commands.CommandSourceStack;
@@ -19,6 +20,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 
 @Mod(CitizenBoutique.MOD_ID)
@@ -31,10 +33,11 @@ public class CitizenBoutique {
         NeoForge.EVENT_BUS.addListener(this::onServerStarting);
         NeoForge.EVENT_BUS.addListener(this::onCommands);
         NeoForge.EVENT_BUS.addListener(this::onLogin);
+        NeoForge.EVENT_BUS.addListener((ServerTickEvent.Post e) -> PayPalService.tick(e.getServer()));
         if (FMLEnvironment.dist == Dist.CLIENT) fr.citizen.boutique.client.ClientSetup.init(modBus);
     }
 
-    private void onServerStarting(ServerStartingEvent e) { ShopStore.load(); }
+    private void onServerStarting(ServerStartingEvent e) { ShopStore.load(); PayPalService.load(); }
 
     private void onLogin(PlayerEvent.PlayerLoggedInEvent e) {
         if (e.getEntity() instanceof ServerPlayer p) ShopService.onLogin(p);
@@ -54,6 +57,23 @@ public class CitizenBoutique {
                             int n = 0;
                             for (ServerPlayer p : EntityArgument.getPlayers(c, "joueur")) { ShopService.sendShop(p, true); n++; }
                             return n;
+                        })))
+                // Suivi des soutiens PayPal
+                .then(Commands.literal("paypal").requires(CitizenBoutique::admin)
+                        .executes(c -> {
+                            var list = PayPalService.snapshot();
+                            int from = Math.max(0, list.size() - 10);
+                            c.getSource().sendSuccess(() -> Component.literal("§6✠ Derniers soutiens PayPal (" + list.size() + " au total) :"), false);
+                            for (var o : list.subList(from, list.size()))
+                                c.getSource().sendSuccess(() -> Component.literal("§7" + o.status + " §f" + o.playerName + " §7- " + o.offerName + " - "
+                                        + PayPalService.amount(o.cents) + " " + o.currency + (o.sandbox ? " §8[test]" : "") + " §8" + o.orderId
+                                        + (o.note.isEmpty() ? "" : " §c" + o.note)), false);
+                            return list.size();
+                        })
+                        .then(Commands.literal("verifier").executes(c -> {
+                            PayPalService.checkNow(c.getSource().getServer(), null);
+                            c.getSource().sendSuccess(() -> Component.literal("§6Vérification des paiements PayPal lancée."), false);
+                            return 1;
                         })))
                 // Recharger boutique.json apres une modification a la main (FTP)
                 .then(Commands.literal("recharger").requires(CitizenBoutique::admin).executes(c -> {

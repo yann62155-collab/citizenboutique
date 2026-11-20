@@ -12,10 +12,11 @@ public abstract class BaseScreen extends Screen {
     protected BaseScreen(String title) { super(Component.literal(title)); }
 
     protected void layout(int maxW, int maxH) {
+        // place pour le pignon au-dessus (18 px) et le bandeau de message en dessous (18 px)
         pw = Math.min(width - 16, maxW);
-        ph = Math.min(height - 16, maxH);
+        ph = Math.min(height - 42, maxH);
         px = (width - pw) / 2;
-        py = (height - ph) / 2;
+        py = (height - ph) / 2 + 2;
     }
 
     /** Appele quand une nouvelle version de la boutique arrive. */
@@ -37,10 +38,11 @@ public abstract class BaseScreen extends Screen {
         if (System.currentTimeMillis() < ClientState.messageUntil && !ClientState.message.isEmpty()) {
             String m = ClientState.message;
             int w = Math.min(pw - 20, font.width(m) + 16);
-            int x = px + (pw - w) / 2, y = py >= 20 ? py - 19 : py + ph - 20;
-            g.fill(x, y, x + w, y + 16, ClientState.messageOk ? 0xF0244A16 : 0xF0601414);
+            int x = px + (pw - w) / 2, y = py + ph + 4;
+            if (y + 16 > height) y = py + ph - 22;
+            g.fill(x, y, x + w, y + 16, ClientState.messageOk ? 0xF01F3A1E : 0xF04E0B12);
             Ui.frame(g, x, y, w, 16, Ui.GOLD);
-            g.drawCenteredString(font, Ui.ellipsis(font, m, w - 8), x + w / 2, y + 4, 0xFFFFF1C1);
+            g.drawCenteredString(font, Ui.ellipsis(font, m, w - 8), x + w / 2, y + 4, Ui.GOLD_BRIGHT);
         }
     }
 
