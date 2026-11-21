@@ -1,0 +1,6 @@
+{
+  "providers": [
+    { "type": "ttf", "file": "citizenboutique:crimson_semibold.ttf", "size": 10.5, "oversample": 4.0, "shift": [0.0, 0.0], "skip": "" },
+    { "type": "reference", "id": "minecraft:default" }
+  ]
+}

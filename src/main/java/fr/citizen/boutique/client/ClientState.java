@@ -13,13 +13,8 @@ import java.util.Map;
 public final class ClientState {
     public static ShopData shop = new ShopData();
     public static boolean admin;
-    public static boolean bankAvailable;
-    public static boolean bankInstalled;
     public static boolean paypalReady;
     public static boolean paypalSecretSet;
-    public static long bank = -1;
-    public static long wallet;
-    public static int xp;
     public static Map<String, Integer> bought = new HashMap<>();
 
     public static String message = "";
@@ -31,13 +26,8 @@ public final class ClientState {
     static void apply(String json) {
         JsonObject root = JsonParser.parseString(json).getAsJsonObject();
         admin = root.get("admin").getAsBoolean();
-        bankAvailable = root.get("bankAvailable").getAsBoolean();
-        bankInstalled = root.has("bankInstalled") && root.get("bankInstalled").getAsBoolean();
-        bank = root.get("bank").getAsLong();
         paypalReady = root.has("paypalReady") && root.get("paypalReady").getAsBoolean();
         paypalSecretSet = root.has("paypalSecretSet") && root.get("paypalSecretSet").getAsBoolean();
-        wallet = root.get("wallet").getAsLong();
-        xp = root.get("xp").getAsInt();
         ShopData d = ShopStore.GSON.fromJson(root.get("shop"), ShopData.class);
         shop = d == null ? new ShopData() : d;
         if (shop.offers == null) shop.offers = new java.util.ArrayList<>();

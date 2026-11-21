@@ -100,6 +100,7 @@ public final class ImageCache {
         try {
             NativeImage img = NativeImage.read(new ByteArrayInputStream(png));
             DynamicTexture tex = new DynamicTexture(img);
+            tex.setFilter(true, false);
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(CitizenBoutique.MOD_ID, "shopimg/" + (counter++));
             Minecraft.getInstance().getTextureManager().register(id, tex);
             Tex old = READY.put(key, new Tex(id, img.getWidth(), img.getHeight()));
@@ -126,6 +127,17 @@ public final class ImageCache {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(dst, "png", out);
         return out.toByteArray();
+    }
+
+    /** Remplit tout le cadre (recadrage au centre), comme une illustration. */
+    public static void drawCover(GuiGraphics g, Tex t, int x, int y, int w, int h) {
+        float s = Math.max(w / (float) t.w(), h / (float) t.h());
+        int uw = Math.max(1, Math.round(w / s)), vh = Math.max(1, Math.round(h / s));
+        int u = (t.w() - uw) / 2, v = (t.h() - vh) / 2;
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        g.blit(t.id(), x, y, w, h, (float) u, (float) v, uw, vh, t.w(), t.h());
+        RenderSystem.disableBlend();
     }
 
     /** Dessine l'image centree dans le cadre en gardant ses proportions. */

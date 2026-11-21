@@ -15,6 +15,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -63,20 +64,30 @@ public final class ShopStore {
     /** Remet des valeurs sures si le fichier a ete modifie a la main. */
     private static ShopData sanitize(ShopData d) {
         if (d.settings == null) d.settings = new ShopData.Settings();
-        if (d.settings.coins == null || d.settings.coins.isEmpty()) d.settings.coins = ShopData.Settings.defaultCoins();
         if (d.settings.admins == null) d.settings.admins = new java.util.ArrayList<>();
+        if (d.settings.tagline == null) d.settings.tagline = "";
+        if (d.offers == null) d.offers = new java.util.ArrayList<>();
+        // Anciennes listes de categories par defaut (versions precedentes) -> nouvelles categories
+        List<String> old1 = List.of("Équipement", "Outils", "Nourriture", "Divers"), old2 = List.of("Cosmétiques", "Titres", "Soutien");
+        if (d.categories != null && (d.categories.equals(old1) || d.categories.equals(old2))
+                && d.offers.stream().noneMatch(o -> o != null && o.category != null && !o.category.isBlank())) {
+            d.categories = new ShopData().categories;
+            d.categoryInfo = ShopData.defaultCategoryInfo();
+        }
+        if (d.categoryInfo == null) d.categoryInfo = ShopData.defaultCategoryInfo();
         if (d.categories == null) d.categories = new java.util.ArrayList<>();
+        for (String c : d.categories) d.categoryInfo.computeIfAbsent(c, k -> new ShopData.Category());
         if (d.offers == null) d.offers = new java.util.ArrayList<>();
         d.offers.removeIf(o -> o == null);
         for (ShopData.Offer o : d.offers) {
             if (o.id == null || o.id.isBlank()) o.id = newId();
             if (o.commands == null) o.commands = new java.util.ArrayList<>();
+            if (o.features == null) o.features = new java.util.ArrayList<>();
             if (o.name == null) o.name = "Article";
             if (o.description == null) o.description = "";
             if (o.category == null) o.category = "";
             if (o.image == null) o.image = "";
-            if (o.barterItem == null) o.barterItem = "";
-            o.price = Math.max(0, o.price);
+            o.realPriceCents = Math.max(0, o.realPriceCents);
         }
         return d;
     }

@@ -17,37 +17,40 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Creation / modification d'un article (admins). Tout est applique immediatement sur le serveur.
- * Image : glisser-deposer un fichier sur la fenetre, bouton « Parcourir… », ou coller un lien.
- */
-public class EditScreen extends BaseScreen {
+/** Creation / modification d'un article (admins uniquement). Enregistre tout de suite sur le serveur. */
+public class EditScreen extends BaseScreen implements ImageTarget {
     private final Screen parent;
     private final ShopData.Offer source;
-    /** Valeurs saisies, conservees si l'ecran est reconstruit (redimensionnement). */
     private final ShopData.Offer draft;
     private boolean useHand;
     private boolean clearItem;
     private String uploadStatus = "";
+    private String previewKey;
 
-    private EditBox name, category, price, real, stock, limit, xp, barterItem, barterCount, image, commands;
-    private MultiLineEditBox description;
-    private Ui.Toggle coins, bank, enabled;
+    private EditBox name, category, real, stock, limit, image, commands;
+    private MultiLineEditBox features, description;
+    private Ui.Toggle enabled, popular;
+    private int lx, lw, rx, rw, top, previewY, featY, descY, cmdY, objY;
 
-    public EditScreen(Screen parent, ShopData.Offer offer) {
+    public EditScreen(Screen parent, ShopData.Offer offer) { this(parent, offer, ""); }
+
+    public EditScreen(Screen parent, ShopData.Offer offer, String defaultCategory) {
         super("Article");
         this.parent = parent;
         this.source = offer;
         ShopData.Offer d = offer == null ? new ShopData.Offer() : ShopStore.GSON.fromJson(ShopStore.GSON.toJson(offer), ShopData.Offer.class);
-        if (offer == null && !shop().categories.isEmpty()) d.category = shop().categories.get(0);
+        if (offer == null) d.category = defaultCategory != null && !defaultCategory.isEmpty() ? defaultCategory
+                : shop().categories.isEmpty() ? "" : shop().categories.get(0);
         if (d.commands == null) d.commands = new ArrayList<>();
+        if (d.features == null) d.features = new ArrayList<>();
         this.draft = d;
+        this.previewKey = d.image == null ? "" : d.image;
     }
 
     @Override public boolean liveUpdate() { return false; }
 
     private EditBox box(int x, int y, int w, String hint, String value, int max) {
-        EditBox b = new EditBox(font, x, y, w, 14, Component.literal(hint));
+        EditBox b = new EditBox(font, x, y, w, 15, Component.literal(hint));
         b.setMaxLength(max);
         b.setHint(Component.literal(hint));
         b.setValue(value == null ? "" : value);
@@ -58,67 +61,60 @@ public class EditScreen extends BaseScreen {
     @Override
     protected void init() {
         if (name != null) readFields();
-        layout(460, 300);
-        int lx = px + 14, lw = 150;
-        int rx = px + 180, rw = pw - 194;
-        int y = py + 40;
+        layout(540, 310);
+        lx = px + 16; lw = 170;
+        rx = px + 202; rw = pw - 218;
+        top = py + 42;
 
         // ---------- colonne gauche
-        name = box(lx, y + 10, lw, "Nom de l'article", draft.name, 48); y += 28;
-        category = box(lx, y + 10, lw - 22, "Catégorie", draft.category, 32);
-        addRenderableWidget(new Ui.MButton(lx + lw - 20, y + 9, 20, 16, ">", Ui.MButton.Style.WOOD, this::nextCategory));
-        y += 28;
-        price = box(lx, y + 10, 48, "0", Long.toString(draft.price), 12);
-        real = box(lx + 51, y + 10, 48, "0,00", draft.realPriceCents > 0 ? centsText(draft.realPriceCents) : "", 8);
-        xp = box(lx + 102, y + 10, 48, "0", Integer.toString(draft.xpLevels), 6); y += 28;
-        stock = box(lx, y + 10, 70, "-1", Integer.toString(draft.stock), 9);
-        limit = box(lx + 80, y + 10, 70, "0", Integer.toString(draft.limitPerPlayer), 9); y += 28;
-        barterItem = box(lx, y + 10, 104, "minecraft:diamond", draft.barterItem, 100);
-        barterCount = box(lx + 108, y + 10, 42, "0", Integer.toString(draft.barterCount), 6); y += 18;
-        addRenderableWidget(new Ui.MButton(lx, y + 9, lw, 14, "Troc = objet main gauche", Ui.MButton.Style.WOOD, () -> {
-            ItemStack off = Minecraft.getInstance().player == null ? ItemStack.EMPTY : Minecraft.getInstance().player.getOffhandItem();
-            if (off.isEmpty()) { ClientState.toast("Mettez l'objet de troc dans votre main gauche.", false); return; }
-            barterItem.setValue(ItemJson.id(off.getItem()));
-            barterCount.setValue(Integer.toString(off.getCount()));
-        }));
-        y += 28;
-        coins = addRenderableWidget(new Ui.Toggle(lx, y, 73, 16, "Pièces", draft.allowCoins));
-        bank = addRenderableWidget(new Ui.Toggle(lx + 77, y, 73, 16, "Banque", draft.allowBank));
-        y += 19;
-        enabled = addRenderableWidget(new Ui.Toggle(lx, y, lw, 16, "En vente (visible)", draft.enabled));
-
-        // ---------- colonne droite
-        int ry = py + 40;
-        image = box(rx, ry + 10, rw - 76, "Lien http(s) ou glissez une image ici", draft.image, 400);
-        addRenderableWidget(new Ui.MButton(rx + rw - 72, ry + 9, 72, 16, "Parcourir…", Ui.MButton.Style.GOLD, this::browse));
-        ry += 28;
-        int previewH = 54;
-        previewY = ry + 2;
-        ry += previewH + 4;
-        description = new MultiLineEditBox(font, rx, ry + 10, rw, 54, Component.literal("Description visible par les joueurs"), Component.literal("Description"));
-        description.setCharacterLimit(600);
-        description.setValue(draft.description);
-        addRenderableWidget(description);
-        ry += 68;
-        commands = box(rx, ry + 10, rw, "ex : give {player} minecraft:apple 3 ; say Merci {player}", String.join(" ; ", draft.commands), 1000);
-        ry += 30;
-        objY = ry;
-        addRenderableWidget(new Ui.MButton(rx + 24, ry, (rw - 24) / 2 - 2, 16, useHand ? "[X] Objet en main" : "Prendre l'objet en main", Ui.MButton.Style.GREEN, () -> {
+        int y = top;
+        name = box(lx, y + 11, lw, "Pack Noble", draft.name, 48); y += 31;
+        category = box(lx, y + 11, lw - 22, "Catégorie", draft.category, 32);
+        addRenderableWidget(new Ui.MButton(lx + lw - 20, y + 11, 20, 15, ">", Ui.MButton.Style.WOOD, this::nextCategory));
+        y += 31;
+        real = box(lx, y + 11, 80, "9,99", draft.realPriceCents > 0 ? centsText(draft.realPriceCents) : "", 8);
+        stock = box(lx + 90, y + 11, 80, "illimité", draft.stock < 0 ? "" : Integer.toString(draft.stock), 9);
+        y += 31;
+        limit = box(lx, y + 11, 80, "illimité", draft.limitPerPlayer <= 0 ? "" : Integer.toString(draft.limitPerPlayer), 9);
+        enabled = addRenderableWidget(new Ui.Toggle(lx + 90, y + 11, 80, 15, "Visible", draft.enabled));
+        y += 31;
+        popular = addRenderableWidget(new Ui.Toggle(lx, y, lw, 16, "Le plus populaire (carte argent)", draft.popular));
+        y += 26;
+        objY = y;
+        addRenderableWidget(new Ui.MButton(lx, y + 24, lw, 15, useHand ? "✔ Objet en main" : "Prendre l'objet en main", Ui.MButton.Style.GREEN, () -> {
             useHand = !useHand; if (useHand) clearItem = false; rebuildWidgets();
         }));
-        addRenderableWidget(new Ui.MButton(rx + 24 + (rw - 24) / 2 + 2, ry, (rw - 24) / 2 - 2, 16, clearItem ? "[X] Sans objet" : "Retirer l'objet", Ui.MButton.Style.RED, () -> {
+        addRenderableWidget(new Ui.MButton(lx, y + 42, lw, 15, clearItem ? "✔ Sans objet" : "Retirer l'objet", Ui.MButton.Style.RED, () -> {
             clearItem = !clearItem; if (clearItem) useHand = false; rebuildWidgets();
         }));
 
-        // ---------- bas
-        int by = py + ph - 24;
-        addRenderableWidget(new Ui.MButton(px + pw - 180, by, 80, 16, "Annuler", Ui.MButton.Style.WOOD, this::onClose));
-        addRenderableWidget(new Ui.MButton(px + pw - 94, by, 80, 16, "Enregistrer", Ui.MButton.Style.GREEN, this::save));
+        // ---------- colonne droite
+        int ry = top;
+        image = box(rx, ry + 11, rw - 80, "Lien http(s) ou glissez une image", draft.image, 400);
+        addRenderableWidget(new Ui.MButton(rx + rw - 76, ry + 11, 76, 15, "Parcourir…", Ui.MButton.Style.GOLD, this::browse));
+        ry += 31;
+        previewY = ry;
+        ry += 46;
+        featY = ry;
+        features = new MultiLineEditBox(font, rx, ry + 11, rw, 50, Component.literal("Un avantage par ligne (6 max)"), Component.literal("Avantages"));
+        features.setCharacterLimit(260);
+        features.setValue(String.join("\n", draft.features));
+        addRenderableWidget(features);
+        ry += 66;
+        descY = ry;
+        description = new MultiLineEditBox(font, rx, ry + 11, rw, 36, Component.literal("Texte affiché sur la fiche détaillée"), Component.literal("Description"));
+        description.setCharacterLimit(600);
+        description.setValue(draft.description);
+        addRenderableWidget(description);
+        ry += 52;
+        cmdY = ry;
+        commands = box(rx, ry + 11, rw, "ex : lp user {player} parent add noble ; say Merci {player} !", String.join(" ; ", draft.commands), 1000);
+
+        int by = py + ph - 26;
+        addRenderableWidget(new Ui.MButton(px + pw - 190, by, 84, 17, "Annuler", Ui.MButton.Style.WOOD, this::onClose));
+        addRenderableWidget(new Ui.MButton(px + pw - 100, by, 86, 17, "Enregistrer", Ui.MButton.Style.GOLD, this::save));
         setInitialFocus(name);
     }
-
-    private int previewY, objY;
-    private String previewKey = "";
 
     private void nextCategory() {
         List<String> cats = shop().categories;
@@ -127,13 +123,8 @@ public class EditScreen extends BaseScreen {
         category.setValue(cats.get((i + 1) % cats.size()));
     }
 
-    private static long num(EditBox b, long def) {
-        try { return Long.parseLong(b.getValue().trim().replace(" ", "")); } catch (NumberFormatException e) { return def; }
-    }
-
     private static String centsText(int c) { return String.format(java.util.Locale.ROOT, "%d,%02d", c / 100, c % 100); }
 
-    /** "4,99" / "4.99" / "5" -> 499 centimes ; vide ou invalide -> 0. */
     private static int cents(String v) {
         v = v.trim().replace(" ", "").replace("€", "").replace(',', '.');
         if (v.isEmpty()) return 0;
@@ -141,43 +132,43 @@ public class EditScreen extends BaseScreen {
         catch (NumberFormatException e) { return 0; }
     }
 
+    private static int intOr(EditBox b, int def) {
+        String v = b.getValue().trim();
+        if (v.isEmpty()) return def;
+        try { return Integer.parseInt(v.replace(" ", "")); } catch (NumberFormatException e) { return def; }
+    }
+
     private void readFields() {
         draft.name = name.getValue().trim();
         draft.category = category.getValue().trim();
-        draft.price = Math.max(0, num(price, 0));
-        draft.xpLevels = (int) Math.max(0, num(xp, 0));
         draft.realPriceCents = cents(real.getValue());
-        draft.stock = (int) Math.max(-1, num(stock, -1));
-        draft.limitPerPlayer = (int) Math.max(0, num(limit, 0));
-        draft.barterItem = barterItem.getValue().trim();
-        draft.barterCount = (int) Math.max(0, num(barterCount, 0));
+        draft.stock = Math.max(-1, intOr(stock, -1));
+        draft.limitPerPlayer = Math.max(0, intOr(limit, 0));
         draft.image = image.getValue().trim();
+        draft.features = new ArrayList<>(Arrays.stream(features.getValue().split("\n")).map(String::trim).filter(s -> !s.isEmpty()).limit(6).toList());
         draft.description = description.getValue();
         draft.commands = new ArrayList<>(Arrays.stream(commands.getValue().split(";")).map(String::trim).filter(s -> !s.isEmpty()).toList());
-        draft.allowCoins = coins.value();
-        draft.allowBank = bank.value();
         draft.enabled = enabled.value();
+        draft.popular = popular.value();
     }
 
     private void save() {
         readFields();
         if (draft.name.isBlank()) { ClientState.toast("Donnez un nom à l'article.", false); return; }
-        if (!draft.barterItem.isBlank() && ItemJson.item(draft.barterItem).isEmpty()) { ClientState.toast("Objet de troc inconnu : " + draft.barterItem, false); return; }
+        if (draft.realPriceCents < 50) { ClientState.toast("Indiquez un prix d'au moins 0,50 €.", false); return; }
         boolean hasItem = useHand || (!clearItem && source != null && source.item != null);
-        if (!hasItem && draft.commands.isEmpty()) { ClientState.toast("Prenez un objet en main (bouton vert) ou ajoutez une commande.", false); return; }
+        if (!hasItem && draft.commands.isEmpty()) { ClientState.toast("Prenez un objet en main ou ajoutez une commande.", false); return; }
         ShopData.Offer send = ShopStore.GSON.fromJson(ShopStore.GSON.toJson(draft), ShopData.Offer.class);
-        send.item = null; // l'objet est garde ou pris en main cote serveur
+        send.item = null;
         JsonObject o = new JsonObject();
         o.add("offer", ShopStore.GSON.toJsonTree(send));
         o.addProperty("useHand", useHand);
         o.addProperty("clearItem", clearItem);
         String json = ShopStore.GSON.toJson(o);
-        if (json.length() > 8_500) { ClientState.toast("Article trop long (description ou commandes).", false); return; }
+        if (json.length() > 8_500) { ClientState.toast("Article trop long.", false); return; }
         ClientSetup.admin("save_offer", json);
         Minecraft.getInstance().setScreen(parent);
     }
-
-    // ------------------------------------------------------------------ images
 
     private void browse() {
         Thread t = new Thread(() -> {
@@ -189,77 +180,69 @@ public class EditScreen extends BaseScreen {
     }
 
     @Override
-    public void onFilesDrop(List<Path> files) {
-        if (!files.isEmpty()) upload(files.get(0));
-    }
+    public void onFilesDrop(List<Path> files) { if (!files.isEmpty()) upload(files.get(0)); }
 
     private void upload(Path file) {
         uploadStatus = "Envoi de l'image…";
         ClientSetup.uploadImage(file, this);
     }
 
-    /** Appele quand le serveur a enregistre l'image. */
-    void onUploaded(String key) {
-        uploadStatus = "Image envoyée sur le serveur.";
+    @Override
+    public void onUploaded(String key) {
+        uploadStatus = "✔ Image enregistrée sur le serveur.";
         draft.image = key;
         previewKey = key;
         if (image != null) image.setValue(key);
     }
 
-    void onUploadFailed(String why) {
-        uploadStatus = why;
-    }
+    @Override
+    public void onUploadFailed(String why) { uploadStatus = why; }
 
     @Override
     public void renderBackground(GuiGraphics g, int mx, int my, float pt) {
         super.renderBackground(g, mx, my, pt);
-        Ui.title(g, font, source == null ? "Nouvel article" : "Modifier l'article", px + pw / 2, py + 12, 1.4f);
-        Ui.divider(g, px + 10, py + 32, pw - 20);
-        g.fill(px + 172, py + 38, px + 173, py + ph - 30, Ui.GOLD_DIM);
-        int rx = px + 180, rw = pw - 194;
-        Ui.parchment(g, rx, previewY, rw, 54);
-        // pas de telechargement a chaque lettre : l'apercu suit le champ quand on n'y tape plus
-        if (image == null) previewKey = draft.image;
-        else if (!image.isFocused()) previewKey = image.getValue().trim();
-        String key = previewKey;
-        ImageCache.Tex t = ImageCache.get(key);
-        if (t != null) ImageCache.draw(g, t, rx + 3, previewY + 3, rw - 6, 48);
-        else g.drawCenteredString(font, key.isBlank() ? "Aucune image (l'icône de l'objet sera affichée)" : ImageCache.failed(key) ? "Image illisible" : "Chargement…",
-                rx + rw / 2, previewY + 23, Ui.INK_LIGHT);
+        screenTitle(g, source == null ? "Nouvel article" : "Modifier l'article");
+        g.fill(px + 193, top, px + 194, py + ph - 34, 0x886E4A1C);
+        if (image != null && !image.isFocused()) previewKey = image.getValue().trim();
+        g.fill(rx, previewY, rx + rw, previewY + 40, 0xFF120D09);
+        Ui.goldBevel(g, rx, previewY, rw, 40);
+        ImageCache.Tex t = ImageCache.get(previewKey);
+        if (t != null) ImageCache.draw(g, t, rx + 3, previewY + 3, rw - 6, 34);
+        else {
+            String m = previewKey.isBlank() ? "Pas d'image : l'icône de l'objet sera affichée" : ImageCache.failed(previewKey) ? "Image illisible" : "Chargement…";
+            Ui.textCentered(g, Ui.ellipsis(m, rw - 10), rx + rw / 2, previewY + 16, Ui.CREAM_DIM, true);
+        }
     }
 
     @Override
     protected void renderOver(GuiGraphics g, int mx, int my, float pt) {
-        int lx = px + 14, y = py + 40;
-        int c = Ui.TEXT_DIM;
-        g.drawString(font, "Nom", lx, y, c, false); y += 28;
-        g.drawString(font, "Catégorie", lx, y, c, false); y += 28;
-        g.drawString(font, "Prix PO", lx, y, c, false);
-        g.drawString(font, "Soutien " + Ui.money(0, shop().settings.currency).replaceAll("[0-9, ]", ""), lx + 51, y, 0xFFE0707A, false);
-        g.drawString(font, "XP niv.", lx + 102, y, c, false); y += 28;
-        g.drawString(font, "Stock (-1 = ∞)", lx, y, c, false);
-        g.drawString(font, "Limite/joueur", lx + 80, y, c, false); y += 28;
-        g.drawString(font, "Troc : objet   × qté", lx, y, c, false);
-        int rx = px + 180, rw = pw - 194;
-        g.drawString(font, "Image", rx, py + 40, c, false);
-        int ry = py + 40 + 28 + 58;
-        g.drawString(font, "Description", rx, ry, c, false);
-        g.drawString(font, "Commandes console (séparées par ;)", rx, ry + 68, c, false);
-        // objet vendu
+        int c = Ui.CREAM, y = top;
+        Ui.text(g, "Nom", lx, y, c, true); y += 31;
+        Ui.text(g, "Catégorie", lx, y, c, true); y += 31;
+        Ui.text(g, "Prix (" + shop().settings.currency + ")", lx, y, Ui.GOLD_TEXT, true);
+        Ui.text(g, "Stock", lx + 90, y, c, true); y += 31;
+        Ui.text(g, "Limite / joueur", lx, y, c, true);
+
+        Ui.text(g, "Objet donné", lx, objY + 4, c, true);
         Minecraft mc = Minecraft.getInstance();
         ItemStack shown = ItemStack.EMPTY;
         if (useHand && mc.player != null) shown = mc.player.getMainHandItem();
         else if (!clearItem && source != null && mc.level != null) shown = ItemJson.decode(source.item, mc.level.registryAccess());
-        g.fill(rx, objY, rx + 20, objY + 18, 0x55000000);
-        Ui.frame(g, rx, objY, 20, 18, Ui.GOLD_DIM);
+        int ox = lx + 80;
+        g.fill(ox, objY, ox + 20, objY + 20, 0xFF120D09);
+        Ui.goldBevel(g, ox, objY, 20, 20);
         if (!shown.isEmpty()) {
-            g.renderItem(shown, rx + 2, objY + 1);
-            g.renderItemDecorations(font, shown, rx + 2, objY + 1);
-            if (mx >= rx && mx < rx + 20 && my >= objY && my < objY + 18) g.renderTooltip(font, shown, mx, my);
-        }
-        g.drawString(font, "Objet vendu : " + (shown.isEmpty() ? "aucun" : shown.getHoverName().getString()), rx, objY + 21, c, false);
-        if (!uploadStatus.isEmpty()) g.drawString(font, uploadStatus, px + 14, py + ph - 20, Ui.GOLD, false);
-        else g.drawString(font, "Astuce : glissez une image sur la fenêtre", px + 14, py + ph - 20, 0xFF8C7A55, false);
+            g.renderItem(shown, ox + 2, objY + 2);
+            g.renderItemDecorations(font, shown, ox + 2, objY + 2);
+            if (mx >= ox && mx < ox + 20 && my >= objY && my < objY + 20) g.renderTooltip(font, shown, mx, my);
+        } else Ui.text(g, "aucun", ox + 26, objY + 5, Ui.CREAM_DIM, true);
+
+        Ui.text(g, "Image (emblème de la carte)", rx, top, c, true);
+        Ui.text(g, "Avantages — un par ligne, avec une coche", rx, featY, Ui.GOLD_TEXT, true);
+        Ui.text(g, "Description (fiche détaillée)", rx, descY, c, true);
+        Ui.text(g, "Commandes console à l'achat (séparées par ;)", rx, cmdY, c, true);
+        String bottom = !uploadStatus.isEmpty() ? uploadStatus : "Astuce : glissez une image sur la fenêtre";
+        Ui.text(g, Ui.ellipsis(bottom, pw - 230), px + 18, py + ph - 22, uploadStatus.isEmpty() ? Ui.CREAM_DIM : Ui.GOLD_TEXT, true);
     }
 
     @Override

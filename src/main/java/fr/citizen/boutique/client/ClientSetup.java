@@ -24,7 +24,7 @@ public final class ClientSetup {
     public static final KeyMapping OPEN_KEY = new KeyMapping("key.citizenboutique.open", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F6, "key.categories.citizenboutique");
     private static final int CHUNK = 24_000;
 
-    private static EditScreen uploadTarget;
+    private static ImageTarget uploadTarget;
     private static byte[] uploadPng;
 
     private ClientSetup() { }
@@ -80,7 +80,7 @@ public final class ClientSetup {
     }
 
     /** Reduit l'image en PNG 256 px puis l'envoie au serveur par morceaux. */
-    static void uploadImage(Path file, EditScreen target) {
+    static void uploadImage(Path file, ImageTarget target) {
         Thread t = new Thread(() -> {
             try {
                 if (Files.size(file) > 20L * 1024 * 1024) throw new IllegalArgumentException("fichier trop lourd (max 20 Mo)");

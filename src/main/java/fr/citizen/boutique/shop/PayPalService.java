@@ -201,7 +201,7 @@ public final class PayPalService {
         }, WORKER).whenComplete((o, err) -> server.execute(() -> {
             ServerPlayer p = server.getPlayerList().getPlayer(id);
             if (err != null) {
-                CitizenBoutique.LOGGER.warn("Citizen Boutique : création de commande PayPal impossible : {}", BankBridge.message(err));
+                CitizenBoutique.LOGGER.warn("Citizen Boutique : création de commande PayPal impossible : {}", message(err));
                 if (p != null) error(p, "PayPal indisponible pour le moment. Réessayez plus tard.");
                 return;
             }
@@ -399,6 +399,13 @@ public final class PayPalService {
             throw new IllegalStateException("PayPal HTTP " + res.statusCode() + " " + detail);
         }
         return JsonParser.parseString(res.body()).getAsJsonObject();
+    }
+
+    /** Message lisible d'une erreur (deballe CompletionException). */
+    static String message(Throwable t) {
+        while ((t instanceof java.util.concurrent.CompletionException || t instanceof java.util.concurrent.ExecutionException) && t.getCause() != null) t = t.getCause();
+        String m = t.getMessage();
+        return m == null || m.isBlank() ? t.toString() : m;
     }
 
     private static String clip(String s, int max) { return s.length() > max ? s.substring(0, max) : s; }
